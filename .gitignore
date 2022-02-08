@@ -88,3 +88,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+elixir/_build/
+elixir/.elixir_ls/
