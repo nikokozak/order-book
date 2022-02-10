@@ -87,14 +87,14 @@ defmodule OrderBook.PriceTree do
   Returns the minimum registered price level.
   """
   def lowest_price(%__MODULE__{} = tree) do
-    get_first(tree) |> elem(0)
+    get_first(tree, {nil, nil}) |> elem(0)
   end
 
   @doc """
   Returns the highest registered price level.
   """
   def highest_price(%__MODULE__{} = tree) do
-    get_last(tree) |> elem(0)
+    get_last(tree, {nil, nil}) |> elem(0)
   end
 
   @doc """

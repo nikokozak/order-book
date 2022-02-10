@@ -2,6 +2,10 @@ defmodule OrderBook do
   @moduledoc """
   :bids -> %PriceTree{}
   %PriceTree{} -> %OrderQueue{}'s
+
+  TODO: 
+    - implement "all-or-none" functionality
+    - implement market-orders
   """
   alias OrderBook.{PriceTree, OrderQueue}
 
@@ -142,19 +146,33 @@ defmodule OrderBook do
     end)
   end
 
-  def price_match({%__MODULE__{} = book, %Order{side: :bid, qty: 0}}), do: book
+  def price_match({%__MODULE__{} = book, %Order{qty: 0}}), do: book
   def price_match({%__MODULE__{} = book, %Order{} = order}), do: price_match(book, order)
   def price_match(%__MODULE__{} = book, %Order{id: id, side: :bid} = bid_order) when is_number(id) do
     lowest_asking_price = PriceTree.lowest_price(book.asks)
 
     cond do
-      lowest_asking_price > bid_order.price -> 
+      lowest_asking_price > bid_order.price or lowest_asking_price == nil -> 
         book
         |> insert_active_order(bid_order)
         |> enqueue_active_order(bid_order)
       lowest_asking_price <= bid_order.price ->
         book
         |> execute_order(bid_order, lowest_asking_price)
+        |> price_match()
+    end
+  end
+  def price_match(%__MODULE__{} = book, %Order{id: id, side: :ask} = ask_order) when is_number(id) do
+    highest_asking_price = PriceTree.highest_price(book.bids)
+
+    cond do
+      highest_asking_price < ask_order.price or highest_asking_price == nil -> 
+        book
+        |> insert_active_order(ask_order)
+        |> enqueue_active_order(ask_order)
+      highest_asking_price >= ask_order.price ->
+        book
+        |> execute_order(ask_order, highest_asking_price)
         |> price_match()
     end
   end
