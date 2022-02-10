@@ -202,6 +202,10 @@ defmodule OrderBookTest do
       assert OrderQueue.count(PriceTree.get_order_queue(book.asks, 150)) == 1
     end
 
+    test "raises on inability of finding price_point" do
+      
+    end
+
   end
 
   describe "execute_order/3 for :ask order" do
@@ -256,6 +260,10 @@ defmodule OrderBookTest do
       assert modified_bid_order.qty == 50
       assert PriceTree.has_price?(book.bids, 150) == true
       assert OrderQueue.count(PriceTree.get_order_queue(book.bids, 150)) == 1
+    end
+
+    test "raises on inability of finding price_point" do
+      
     end
 
   end
