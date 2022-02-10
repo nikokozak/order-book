@@ -159,22 +159,28 @@ defmodule OrderBook do
     end
   end
 
-  def execute_order(%__MODULE__{} = book, %Order{side: :bid} = bid_order, ask_price) do
-    ask_order_queue = PriceTree.get_order_queue(book.asks, ask_price)
-    first_ask_order = OrderBook.get_active_order(book, OrderQueue.peek(ask_order_queue))
+  #TODO: handle case where price_point doesn't exist (get_order_queue fails because it passes nil to elem(1)
+  def execute_order(%__MODULE__{} = book, %Order{side: side} = live_order, price_point) do
+    price_tree_key = case side do
+      :ask -> :bids
+      :bid -> :asks
+    end
+
+    order_queue = PriceTree.get_order_queue(Map.get(book, price_tree_key), price_point)
+    first_order = OrderBook.get_active_order(book, OrderQueue.peek(order_queue))
 
     cond do
-      first_ask_order.qty > bid_order.qty ->
+      first_order.qty > live_order.qty ->
         book
-        |> update_active_order(first_ask_order, :qty, &(&1 - bid_order.qty))
-        |> register_transaction(bid_order, first_ask_order)
-        |> (&({&1, %{ bid_order | qty: 0 }})).()
-      first_ask_order.qty <= bid_order.qty ->
+        |> update_active_order(first_order, :qty, &(&1 - live_order.qty))
+        |> register_transaction(live_order, first_order)
+        |> (&({&1, %{ live_order | qty: 0 }})).()
+      first_order.qty <= live_order.qty ->
         book
-        |> remove_active_order(first_ask_order)
-        |> advance_queue(:asks, ask_price)
-        |> register_transaction(bid_order, first_ask_order)
-        |> (&({&1, %{ bid_order | qty: bid_order.qty - first_ask_order.qty}})).()
+        |> remove_active_order(first_order)
+        |> advance_queue(price_tree_key, price_point)
+        |> register_transaction(live_order, first_order)
+        |> (&({&1, %{ live_order | qty: live_order.qty - first_order.qty}})).()
     end
   end
 
