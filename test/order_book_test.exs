@@ -202,8 +202,11 @@ defmodule OrderBookTest do
       assert OrderQueue.count(PriceTree.get_order_queue(book.asks, 150)) == 1
     end
 
-    test "raises on inability of finding price_point" do
-      
+    test "raises on inability of finding price_point", %{ book: book } do
+      # Will not match any price points
+      bid_order = %Order{id: 4, side: :bid, price: 125, qty: 250}
+
+      assert_raise ArgumentError, fn -> OrderBook.execute_order(book, bid_order, bid_order.price) end
     end
 
   end
@@ -262,10 +265,78 @@ defmodule OrderBookTest do
       assert OrderQueue.count(PriceTree.get_order_queue(book.bids, 150)) == 1
     end
 
-    test "raises on inability of finding price_point" do
-      
+    test "raises on inability of finding price_point", %{ book: book } do
+      # Will not match any price points
+      ask_order = %Order{id: 4, side: :ask, price: 125, qty: 250}
+
+      assert_raise ArgumentError, fn -> OrderBook.execute_order(book, ask_order, ask_order.price) end
     end
 
   end
 
+  describe "price_match/2 for bid order" do
+    setup do
+      order_1 = %Order{id: 1, side: :ask, price: 500, qty: 100}
+      order_2 = %Order{id: 2, side: :ask, price: 500, qty: 150}
+      order_3 = %Order{id: 3, side: :ask, price: 150, qty: 300}
+
+      book_a = 
+        OrderBook.new()
+        |> OrderBook.insert_active_order(order_1)
+        |> OrderBook.enqueue_active_order(order_1)
+        |> OrderBook.insert_active_order(order_2)
+        |> OrderBook.enqueue_active_order(order_2)
+        |> OrderBook.insert_active_order(order_3)
+        |> OrderBook.enqueue_active_order(order_3)
+
+      book_b = 
+        OrderBook.new()
+        |> OrderBook.insert_active_order(order_1)
+        |> OrderBook.enqueue_active_order(order_1)
+        |> OrderBook.insert_active_order(order_2)
+        |> OrderBook.enqueue_active_order(order_2)
+
+      [book_a: book_a, book_b: book_b, order_1: order_1, order_2: order_2, order_3: order_3]
+    end
+
+    test "correctly closes matching bid order and associated enqueued active ask order", %{ book_a: book, order_3: order_3 } do
+      # Matches ask order #3
+      order = %Order{ id: 4, side: :bid, price: 150, qty: 300 }
+
+      assert PriceTree.has_price?(Map.get(book, :asks), 150) == true
+      assert OrderBook.get_active_order(book, 3) != nil
+
+      book = OrderBook.price_match(book, order)
+
+      assert OrderBook.get_active_order(book, 4) == nil
+      assert OrderBook.get_active_order(book, 3) == nil
+      refute PriceTree.has_price?(book.asks, 150)
+    end
+
+    test "correctly closes single matching ask order", %{ book_b: book } do
+      # Matches ask order #1
+      order = %Order{ id: 4, side: :bid, price: 500, qty: 100 }
+
+      book = OrderBook.price_match(book, order)
+
+      assert OrderBook.get_active_order(book, 1) == nil
+      assert OrderBook.get_active_order(book, 2) != nil
+      assert PriceTree.has_price?(book.asks, 500) 
+      assert OrderQueue.count(PriceTree.get_order_queue(book.asks, 500)) == 1
+      assert OrderQueue.peek(PriceTree.get_order_queue(book.asks, 500)) == 2
+    end
+
+    test "correctly closes multiple matching ask orders", %{ book_b: book } do
+      # Matches ask order #1 & #2
+      order = %Order{ id: 4, side: :bid, price: 500, qty: 250 }
+
+      book = OrderBook.price_match(book, order)
+
+      assert OrderBook.get_active_order(book, 1) == nil
+      assert OrderBook.get_active_order(book, 2) == nil
+      refute PriceTree.has_price?(book.asks, 500) 
+    end
+
+
+  end
 end

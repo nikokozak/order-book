@@ -159,11 +159,14 @@ defmodule OrderBook do
     end
   end
 
-  #TODO: handle case where price_point doesn't exist (get_order_queue fails because it passes nil to elem(1)
   def execute_order(%__MODULE__{} = book, %Order{side: side} = live_order, price_point) do
     price_tree_key = case side do
       :ask -> :bids
       :bid -> :asks
+    end
+
+    if not PriceTree.has_price?(Map.get(book, price_tree_key), price_point) do
+      raise ArgumentError, "price_point [#{price_point}] provided to execute_order/3 doesn't exist in price tree [#{price_tree_key}] of book [#{book.name}]"
     end
 
     order_queue = PriceTree.get_order_queue(Map.get(book, price_tree_key), price_point)
@@ -191,62 +194,11 @@ defmodule OrderBook do
   defp bids_or_asks(%Order{side: :bid}), do: :bids
   defp bids_or_asks(%Order{side: :ask}), do: :asks
 
-  # IN GENERAL:
-  
-  # price_time_match for Buy orders, and for Sell orders:
-  
-  # If buying:
-  # Look at earliest ask_order in queue at lowest price level.
-  # If lowest price level > bid price, then add bid to queued bids AVL tree.
-  # Otherwise, execute a trade with the lowest price level, ask amt.
-  # If when buying the lowest ask_order, we don't exhaust our buy qty, then re-run the function.
-  # Otherwise, clean-up.
-  
-  # If selling:
-  # Look at the earliest bid_order in queue at highest price level.
-  # If highest price level < ask price, then add bid to queued bids AVL tree.
-  # Otherwise, execute a trade with the highest price level, bid amt.
-  # If when selling at the highest bid_order, we don't exhaust our ask qty, then re-run the function.
-  # Otherwise, clean-up.
-
-
-    # Get the minimum price level for ask orders outstanding.
-    # Get the maximum price level for bid orders outstanding.
-    
-    # If the maximum price level for bids is >= the minimum price level for asks, then
-    # continue. Otherwise, return our trades stack.
-  
-    # For every ask order - { ask_id, ask_amt } - in our ask_orders corresponding to the above minimum ask price, and for every bid_order - { bid_id, bid_amt } - in our bid_orders corresponding to the maximum bid price:
-    
-    # Determine how many shares will be traded by getting the minimum of the available bid & ask qties
     # Reduce the number of outstanding ask_amt
     # Reduce the number of outstanding bid_amt
     # Reduce the total ask size
     # Reduce the total bid size
     # Increase the total volume traded
     # Reduce the total volume pending (2 * traded)
-    
-    # If no bid_amt is left after the trade, then:
-    
-    # Increase the cleared_orders_count
-    # Remove this bid_order - { bid_id, bid_amt } - from the bid orders at this price level.
-    # Remove the price_id for this bid_order.
-    # Remove the order_owner for this bid_order.
-    # Update the bid owner's ids.
-    
-    # If no ask_amt is left after the trade, then:
-
-    # Increase the cleared_orders_count
-    # Remove this order from the ask orders
-    # Remove this order from the price_ids
-    # Update the bid owner's ids.
-    
-    # Store receipts for orders somewhere.
-    
-    # If all orders at this ask level have been executed, then remove this ask_level.
-    # If all orders at this bid level have been executed, then remove this bid_level
-
-    # Recursively call this function to continue balancing
-    
 
 end

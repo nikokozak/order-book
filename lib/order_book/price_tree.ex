@@ -62,7 +62,10 @@ defmodule OrderBook.PriceTree do
   Returns a queue of orders at the given `price` level. Returns nil if price hasn't been registered.
   """
   def get_order_queue(%__MODULE__{} = tree, price) when is_number(price) do
-    get(tree, {price, nil}) |> elem(1)
+    case get(tree, {price, nil}) do
+      {_price, order_queue} -> order_queue
+      nil -> nil
+    end
   end
 
   @doc """
