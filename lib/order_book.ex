@@ -14,7 +14,7 @@ defmodule OrderBook do
     - implement "all-or-none" functionality
     - implement market-orders
   """
-  alias OrderBook.{PriceTree, OrderQueue, Order}
+  alias OrderBook.{PriceTree, OrderQueue, Order, Transaction}
 
   defstruct [
     :name,
@@ -45,7 +45,7 @@ defmodule OrderBook do
       bids: PriceTree.new(),
       active_orders: %{},
       last_order_id: 0,
-      completed_transactions: %{},
+      completed_transactions: [],
       last_transaction_id: 0,
       total_volume_traded: 0,
       total_volume_pending: 0
@@ -182,8 +182,52 @@ defmodule OrderBook do
     end
   end
 
-  def register_transaction(%__MODULE__{} = book, %Order{} = _order_a, %Order{} = _order_b) do
+  @doc """
+  Registers a transaction (the paper trail for an executed order). Creates and registers the data structures that serve as the source of truth for defining which transactions *actually* happened. More importantly, **registers the price** at which a transaction was executed.
+
+  In calling the function, the **first** `%Order{}` argument is the **operative** order, meaning: if a live `bid` order was matched against queued `ask` orders, the `bid` order is considered the operative order, as the price listed in the transaction will be the `ask` price, which might be considerably lower than the `bid`s limit price. 
+
+  The same logic applies vice-versa eg: `ask` being operative, where the queued `bid` order will be taken at max price.
+  """
+  def register_transaction(%__MODULE__{} = book, %Order{side: :bid} = op_bid_order, %Order{side: :ask} = re_ask_order) do
+    { transaction_id, book } = OrderBook.get_transaction_id(book)
+    transaction_qty = min(op_bid_order.qty, re_ask_order.qty)
+
+    transaction = %{ %Transaction{} | 
+      id: transaction_id, 
+      qty: transaction_qty,
+      bid_order: op_bid_order,
+      ask_order: re_ask_order,
+      price: re_ask_order.price,
+      type: cond do
+        op_bid_order.qty > re_ask_order.qty -> :bid_partial_ask_full
+        op_bid_order.qty == re_ask_order.qty -> :bid_full_ask_full
+        op_bid_order.qty < re_ask_order.qty -> :bid_full_ask_partial
+      end
+    }
+
     book
+    |> Map.update!(:completed_transactions, &([transaction | &1]))
+  end 
+  def register_transaction(%__MODULE__{} = book, %Order{side: :ask} = op_ask_order, %Order{side: :bid} = re_bid_order) do
+    { transaction_id, book } = OrderBook.get_transaction_id(book)
+    transaction_qty = min(op_ask_order.qty, re_bid_order.qty)
+
+    transaction = %{ %Transaction{} | 
+      id: transaction_id, 
+      qty: transaction_qty,
+      ask_order: op_ask_order,
+      bid_order: re_bid_order,
+      price: re_bid_order.price,
+      type: cond do
+        op_ask_order.qty > re_bid_order.qty -> :ask_partial_bid_full
+        op_ask_order.qty == re_bid_order.qty -> :ask_full_bid_full
+        op_ask_order.qty < re_bid_order.qty -> :ask_full_bid_partial
+      end
+    }
+
+    book
+    |> Map.update!(:completed_transactions, &([transaction | &1]))
   end
 
   defp bids_or_asks(%Order{side: :bid}), do: :bids

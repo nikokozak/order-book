@@ -519,4 +519,113 @@ defmodule OrderBookTest do
       assert OrderQueue.peek(PriceTree.get_order_queue(book.asks, 150)) == 1 
     end
   end
+
+  describe "register_transaction/3 bid order" do
+
+    test "registers one :bid_full_ask_full transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :bid, price: 150, qty: 100}
+      re_order = %Order{id: 2, side: :ask, price: 100, qty: 100}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.bid_order == op_order
+      assert transaction.ask_order == re_order
+      assert transaction.price == 100
+      assert transaction.type == :bid_full_ask_full
+    end
+
+    test "registers one :bid_full_ask_partial transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :bid, price: 150, qty: 100}
+      re_order = %Order{id: 2, side: :ask, price: 100, qty: 150}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.bid_order == op_order
+      assert transaction.ask_order == re_order
+      assert transaction.price == 100
+      assert transaction.type == :bid_full_ask_partial
+    end
+
+    test "registers one :bid_partial_ask_full transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :bid, price: 150, qty: 150}
+      re_order = %Order{id: 2, side: :ask, price: 100, qty: 100}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.bid_order == op_order
+      assert transaction.ask_order == re_order
+      assert transaction.price == 100
+      assert transaction.type == :bid_partial_ask_full
+    end
+  end
+
+  describe "register_transaction/3 ask order" do
+
+    test "registers one :ask_full_bid_full transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :ask, price: 100, qty: 100}
+      re_order = %Order{id: 2, side: :bid, price: 250, qty: 100}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.ask_order == op_order
+      assert transaction.bid_order == re_order
+      assert transaction.price == 250
+      assert transaction.type == :ask_full_bid_full
+    end
+
+    test "registers one :ask_full_bid_partial transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :ask, price: 100, qty: 100}
+      re_order = %Order{id: 2, side: :bid, price: 250, qty: 150}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.ask_order == op_order
+      assert transaction.bid_order == re_order
+      assert transaction.price == 250
+      assert transaction.type == :ask_full_bid_partial
+    end
+
+    test "registers one :ask_partial_bid_full transaction" do
+      book = OrderBook.new()
+      op_order = %Order{id: 1, side: :ask, price: 100, qty: 150}
+      re_order = %Order{id: 2, side: :bid, price: 250, qty: 100}
+
+      book = OrderBook.register_transaction(book, op_order, re_order)
+
+      assert Enum.count(book.completed_transactions) == 1
+
+      transaction = List.first(book.completed_transactions)
+      assert transaction.qty == 100
+      assert transaction.ask_order == op_order
+      assert transaction.bid_order == re_order
+      assert transaction.price == 250
+      assert transaction.type == :ask_partial_bid_full
+    end
+  end
+
 end
