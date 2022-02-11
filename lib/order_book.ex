@@ -191,40 +191,14 @@ defmodule OrderBook do
   """
   def register_transaction(%__MODULE__{} = book, %Order{side: :bid} = op_bid_order, %Order{side: :ask} = re_ask_order) do
     { transaction_id, book } = OrderBook.get_transaction_id(book)
-    transaction_qty = min(op_bid_order.qty, re_ask_order.qty)
-
-    transaction = %{ %Transaction{} | 
-      id: transaction_id, 
-      qty: transaction_qty,
-      bid_order: op_bid_order,
-      ask_order: re_ask_order,
-      price: re_ask_order.price,
-      type: cond do
-        op_bid_order.qty > re_ask_order.qty -> :bid_partial_ask_full
-        op_bid_order.qty == re_ask_order.qty -> :bid_full_ask_full
-        op_bid_order.qty < re_ask_order.qty -> :bid_full_ask_partial
-      end
-    }
+    transaction = Transaction.new(transaction_id, op_bid_order, re_ask_order)
 
     book
     |> Map.update!(:completed_transactions, &([transaction | &1]))
   end 
   def register_transaction(%__MODULE__{} = book, %Order{side: :ask} = op_ask_order, %Order{side: :bid} = re_bid_order) do
     { transaction_id, book } = OrderBook.get_transaction_id(book)
-    transaction_qty = min(op_ask_order.qty, re_bid_order.qty)
-
-    transaction = %{ %Transaction{} | 
-      id: transaction_id, 
-      qty: transaction_qty,
-      ask_order: op_ask_order,
-      bid_order: re_bid_order,
-      price: re_bid_order.price,
-      type: cond do
-        op_ask_order.qty > re_bid_order.qty -> :ask_partial_bid_full
-        op_ask_order.qty == re_bid_order.qty -> :ask_full_bid_full
-        op_ask_order.qty < re_bid_order.qty -> :ask_full_bid_partial
-      end
-    }
+    transaction = Transaction.new(transaction_id, op_ask_order, re_bid_order)
 
     book
     |> Map.update!(:completed_transactions, &([transaction | &1]))
